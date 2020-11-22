@@ -2,6 +2,45 @@ package main
 
 import "fmt"
 
+func drawSprite(m *data, x, y, height int, address uint16) bool {
+	colisão := false
+	if x > 63 {
+		return false
+	}
+	if y > 31 {
+		return false
+	}
+	//  0         1        2...
+	//	|xxxxxxxxx|xxxxxxxx|
+	//              x <- aqui
+	byteNaLinha := x / 8
+	offsetProBit := x % 8
+	// quero escrever 5 bytes começando em...
+	//                  x <- aqui
+	//	|xxxxxxxxx|xxxxxxxx|xx...
+	//  0         1        2...
+	// escrever denovo, com offset "ao contrário"
+
+	// vamos ler x bytes, onde cada byte é uma unidade de altura
+	for byte := 0; byte < height; byte++ {
+		byteAddress := address + uint16(byte)
+		line := (y + byte) % 32
+		fb1 := line*8 + byteNaLinha
+		fb2 := line*8 + ((byteNaLinha + 1) % 8)
+		spr1 := m.ram[byteAddress] >> offsetProBit
+		spr2 := m.ram[byteAddress] << (8 - offsetProBit)
+		if m.frameBuffer[fb1]&spr1 != 0 {
+			colisão = true
+		}
+		if m.frameBuffer[fb2]&spr2 != 0 {
+			colisão = true
+		}
+		m.frameBuffer[fb1] ^= m.ram[byteAddress] >> offsetProBit
+		m.frameBuffer[fb2] ^= m.ram[byteAddress] << (8 - offsetProBit)
+	}
+	return colisão
+}
+
 func drawDisplay(m *data) {
 	// 256 bytes
 	// 2048 bits
@@ -31,7 +70,7 @@ func drawDisplay(m *data) {
 				}
 			}
 		}
-		fmt.Println(string(lineBuffer[:]))
+		fmt.Println(line, "\t", string(lineBuffer[:]))
 		lineBuffer = []rune{}
 	}
 
